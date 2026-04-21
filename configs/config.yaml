@@ -1,0 +1,30 @@
+model:
+  name: vit_base_patch16_224
+  num_classes: 3          # normal, acl, meniscus (adjust to your dataset)
+  pretrained: true
+  img_size: 224
+  drop_rate: 0.1
+
+data:
+  # When running locally (for testing/debugging)
+  local_root: ./data
+  # When running on Colab (Google Drive path)
+  colab_root: /content/drive/MyDrive/knee-abnormality-vit/data
+  train_split: 0.7
+  val_split: 0.15
+  test_split: 0.15
+  num_workers: 4
+
+training:
+  epochs: 50
+  batch_size: 32
+  learning_rate: 1.0e-4
+  weight_decay: 1.0e-4
+  warmup_epochs: 5
+  scheduler: cosine
+  early_stopping_patience: 10
+
+output:
+  # Checkpoints and results saved here on Colab
+  colab_output: /content/drive/MyDrive/knee-abnormality-vit/outputs
+  local_output: ./outputs
