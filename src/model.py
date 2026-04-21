@@ -4,9 +4,10 @@ import timm
 
 
 def build_model(cfg, sit_weights_path=None):
+    use_timm_pretrained = sit_weights_path is None
     model = timm.create_model(
         cfg["model"]["name"],          # vit_small_patch16_224
-        pretrained=cfg["model"]["pretrained"],
+        pretrained=use_timm_pretrained,
         num_classes=0,                 # remove default head; we add our own
         drop_rate=cfg["model"]["drop_rate"],
         img_size=cfg["model"]["img_size"],
@@ -15,6 +16,8 @@ def build_model(cfg, sit_weights_path=None):
     if sit_weights_path is not None:
         _load_sit_weights(model, sit_weights_path)
         print(f"Loaded SiT-S weights from {sit_weights_path}")
+    else:
+        print("Using timm ImageNet pretrained ViT-Small weights")
 
     embed_dim = model.embed_dim
     model.head = nn.Linear(embed_dim, cfg["model"]["num_classes"])
