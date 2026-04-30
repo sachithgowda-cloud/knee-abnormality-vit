@@ -35,8 +35,16 @@ def _load_sit_weights(model, weights_path):
     """Load SiT pretrained checkpoint into a timm ViT-Small model."""
     ckpt = torch.load(weights_path, map_location="cpu", weights_only=False)
 
-    # SiT checkpoints may be wrapped under 'model' or 'state_dict' key
-    state = ckpt.get("model", ckpt.get("state_dict", ckpt))
+    # SiT checkpoints may be wrapped under different keys depending on training code.
+    if isinstance(ckpt, dict):
+        if "student" in ckpt and isinstance(ckpt["student"], dict):
+            state = ckpt["student"]
+        elif "teacher" in ckpt and isinstance(ckpt["teacher"], dict):
+            state = ckpt["teacher"]
+        else:
+            state = ckpt.get("model", ckpt.get("state_dict", ckpt))
+    else:
+        state = ckpt
 
     # Strip any 'module.' prefix from DataParallel wrappers
     state = {k.replace("module.", ""): v for k, v in state.items()}
