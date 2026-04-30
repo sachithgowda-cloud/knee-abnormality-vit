@@ -33,7 +33,7 @@ def build_model(cfg, sit_weights_path=None, use_timm_pretrained=None):
 
 def _load_sit_weights(model, weights_path):
     """Load SiT pretrained checkpoint into a timm ViT-Small model."""
-    ckpt = torch.load(weights_path, map_location="cpu")
+    ckpt = torch.load(weights_path, map_location="cpu", weights_only=False)
 
     # SiT checkpoints may be wrapped under 'model' or 'state_dict' key
     state = ckpt.get("model", ckpt.get("state_dict", ckpt))
