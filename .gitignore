@@ -8,4 +8,5 @@ data/
 *.pt
 .env
 .venv/
+external_images/
 plan.md

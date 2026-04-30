@@ -3,8 +3,10 @@ import torch.nn as nn
 import timm
 
 
-def build_model(cfg, sit_weights_path=None):
-    use_timm_pretrained = sit_weights_path is None
+def build_model(cfg, sit_weights_path=None, use_timm_pretrained=None):
+    if use_timm_pretrained is None:
+        use_timm_pretrained = sit_weights_path is None
+
     model = timm.create_model(
         cfg["model"]["name"],          # vit_small_patch16_224
         pretrained=use_timm_pretrained,
@@ -16,8 +18,10 @@ def build_model(cfg, sit_weights_path=None):
     if sit_weights_path is not None:
         _load_sit_weights(model, sit_weights_path)
         print(f"Loaded SiT-S weights from {sit_weights_path}")
-    else:
+    elif use_timm_pretrained:
         print("Using timm ImageNet pretrained ViT-Small weights")
+    else:
+        print("Using randomly initialised ViT-Small weights")
 
     embed_dim = model.embed_dim
     model.head = nn.Linear(embed_dim, cfg["model"]["num_classes"])

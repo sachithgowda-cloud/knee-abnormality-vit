@@ -3,7 +3,7 @@ import pandas as pd
 from pathlib import Path
 from PIL import Image
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, Subset
 from torchvision import transforms
 
 
@@ -76,6 +76,24 @@ class MRNetDataset(Dataset):
     def __len__(self):
         return len(self.samples) * self.slices_per_volume
 
+    def get_sample_metadata(self, idx):
+        vol_idx = idx // self.slices_per_volume
+        slice_order = idx % self.slices_per_volume
+
+        npy_path, label = self.samples[vol_idx]
+        volume = np.load(npy_path)
+        slice_indices = self._extract_slice_indices(volume)
+
+        return {
+            "sample_index": idx,
+            "case_id": npy_path.stem,
+            "file_path": str(npy_path),
+            "label": int(label),
+            "slice_index": int(slice_indices[slice_order]),
+            "plane": self.plane,
+            "split": self.split,
+        }
+
     def __getitem__(self, idx):
         vol_idx = idx // self.slices_per_volume
         slice_order = idx % self.slices_per_volume
@@ -129,6 +147,8 @@ def get_dataloaders(data_root, cfg):
     workers   = cfg["data"]["num_workers"]
     plane     = cfg["data"]["plane"]
     n_slices  = cfg["data"]["slices_per_volume"]
+    tuning_ratio = cfg["data"].get("tuning_split_ratio", 0.0)
+    seed = cfg["training"].get("seed", 42)
 
     split_map = {"train": "train", "val": "valid"}   # MRNet uses "valid" folder
 
@@ -143,11 +163,28 @@ def get_dataloaders(data_root, cfg):
         for name, folder in split_map.items()
     }
 
+    if tuning_ratio > 0:
+        train_dataset = datasets["train"]
+        total_indices = np.arange(len(train_dataset))
+        rng = np.random.default_rng(seed)
+        rng.shuffle(total_indices)
+
+        tune_size = int(len(total_indices) * tuning_ratio)
+        if tune_size <= 0 or tune_size >= len(total_indices):
+            raise ValueError(
+                f"Invalid tuning_split_ratio={tuning_ratio}. It must create a non-empty split."
+            )
+
+        tune_indices = total_indices[:tune_size].tolist()
+        train_indices = total_indices[tune_size:].tolist()
+        datasets["train"] = Subset(train_dataset, train_indices)
+        datasets["tune"] = Subset(train_dataset, tune_indices)
+
     loaders = {
         name: DataLoader(
             ds,
             batch_size=batch,
-            shuffle=(name == "train"),
+            shuffle=(name in {"train", "tune"}),
             num_workers=workers,
             pin_memory=True,
         )
@@ -155,3 +192,19 @@ def get_dataloaders(data_root, cfg):
     }
 
     return loaders, MRNetDataset.CLASSES
+
+
+def get_dataset_labels(dataset):
+    if isinstance(dataset, Subset):
+        parent_labels = get_dataset_labels(dataset.dataset)
+        return [parent_labels[idx] for idx in dataset.indices]
+
+    if isinstance(dataset, MRNetDataset):
+        labels = []
+        for sample_idx in range(len(dataset)):
+            vol_idx = sample_idx // dataset.slices_per_volume
+            _, label = dataset.samples[vol_idx]
+            labels.append(int(label))
+        return labels
+
+    raise TypeError(f"Unsupported dataset type for label extraction: {type(dataset)!r}")
