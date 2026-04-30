@@ -48,6 +48,10 @@ def _load_sit_weights(model, weights_path):
 
     # Strip any 'module.' prefix from DataParallel wrappers
     state = {k.replace("module.", ""): v for k, v in state.items()}
+    state = {
+        (k.replace("backbone.", "", 1) if k.startswith("backbone.") else k): v
+        for k, v in state.items()
+    }
 
     # Remove the original classification head (we add a new one)
     state = {k: v for k, v in state.items() if not k.startswith("head")}
