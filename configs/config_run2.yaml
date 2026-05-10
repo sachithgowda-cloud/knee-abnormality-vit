@@ -1,0 +1,31 @@
+model:
+  name: vit_small_patch16_224
+  num_classes: 3
+  pretrained: false
+  img_size: 224
+  drop_rate: 0.2            # increased: reduce overfitting
+
+data:
+  plane: sagittal
+  slices_per_volume: 2
+  tuning_split_ratio: 0.0
+  colab_root: /content/drive/MyDrive/knee-abnormality-vit/data/MRNet-v1.0
+  local_root: ./data/MRNet-v1.0
+  num_workers: 2
+
+training:
+  seed: 42
+  epochs: 50
+  batch_size: 16            # smaller batch: more gradient steps, better generalisation
+  backbone_lr: 5.0e-6      # halved: backbone was updating too aggressively
+  head_lr: 5.0e-5          # halved: smoother convergence
+  weight_decay: 5.0e-4     # increased: stronger regularisation
+  warmup_epochs: 10         # longer warmup: stabilise early training
+  early_stopping_patience: 15
+  loss:
+    use_class_weights: true
+    label_smoothing: 0.1
+
+output:
+  colab_output: /content/drive/MyDrive/knee-abnormality-vit/outputs
+  local_output: ./outputs
