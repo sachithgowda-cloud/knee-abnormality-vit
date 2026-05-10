@@ -40,10 +40,36 @@ def evaluate(model, loader, criterion, device):
     return total_loss / total, correct / total
 
 
+class FocalLoss(nn.Module):
+    """Focal Loss — focuses training on hard/misclassified examples.
+    FL(pt) = -alpha_t * (1 - pt)^gamma * log(pt)
+    gamma=0 reduces to weighted cross-entropy.
+    """
+
+    def __init__(self, gamma=2.0, weight=None, label_smoothing=0.0):
+        super().__init__()
+        self.gamma = gamma
+        self.weight = weight
+        self.label_smoothing = label_smoothing
+
+    def forward(self, logits, targets):
+        ce = nn.functional.cross_entropy(
+            logits, targets,
+            weight=self.weight,
+            label_smoothing=self.label_smoothing,
+            reduction="none",
+        )
+        pt = torch.exp(-ce)
+        focal = (1 - pt) ** self.gamma * ce
+        return focal.mean()
+
+
 def build_criterion(train_dataset, cfg, device):
     loss_cfg = cfg["training"].get("loss", {})
     label_smoothing = float(loss_cfg.get("label_smoothing", 0.0))
     use_class_weights = bool(loss_cfg.get("use_class_weights", True))
+    use_focal = bool(loss_cfg.get("focal_loss", False))
+    focal_gamma = float(loss_cfg.get("focal_gamma", 2.0))
 
     weight_tensor = None
     if use_class_weights:
@@ -54,10 +80,12 @@ def build_criterion(train_dataset, cfg, device):
         weight_tensor = torch.tensor(class_weights, dtype=torch.float32, device=device)
         print(f"Class weights  : {class_weights.round(4).tolist()}")
 
-    return nn.CrossEntropyLoss(
-        weight=weight_tensor,
-        label_smoothing=label_smoothing,
-    )
+    if use_focal:
+        print(f"Loss           : FocalLoss (gamma={focal_gamma})")
+        return FocalLoss(gamma=focal_gamma, weight=weight_tensor, label_smoothing=label_smoothing)
+
+    print("Loss           : CrossEntropyLoss")
+    return nn.CrossEntropyLoss(weight=weight_tensor, label_smoothing=label_smoothing)
 
 
 def train(model, loaders, cfg, output_dir, device, optimizer):
