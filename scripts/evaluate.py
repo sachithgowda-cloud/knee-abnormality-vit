@@ -101,9 +101,10 @@ def main():
     class_names = MRNetDataset.CLASSES
 
     model = build_model(cfg, sit_weights_path=None, use_timm_pretrained=False)
-    state_dict = torch.load(checkpoint_path, map_location="cpu")
+    state_dict = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
     model.load_state_dict(state_dict)
     model = model.to(device)
+    print("Loaded checkpoint:", checkpoint_path)
 
     metrics = evaluate_and_save(
         model=model,
